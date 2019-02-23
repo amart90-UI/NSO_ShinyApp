@@ -150,8 +150,6 @@ ui <- {fluidPage(
     mainPanel(
       fluidRow(column(1, plotOutput(outputId = "LegendPlot", width = 100, height = 180)),
                column(11, plotOutput(outputId = "UnbPlot", width = 800, height = 800)))
-      
-      #tableOutput("t.table")
     )
   )
 )}
@@ -343,8 +341,37 @@ server <- function(input, output, session) {
     rasterImage(legend_image, 0, 0, 1,1)
   })
   
+  output$downloadFire <- downloadHandler(
+    filename = 'fire_perim.zip',
+    content = function(file) {
+      if (length(Sys.glob("fire_perim.*"))>0){
+        file.remove(Sys.glob("fire_perim.*"))
+      }
+      writeOGR(fire.sel(), dsn="fire_perim.shp", layer="fire_perim", driver="ESRI Shapefile")
+      zip(zipfile='fire_perim.zip', files=Sys.glob("fire_perim.*"))
+      file.copy("fire_perim.zip", file)
+      if (length(Sys.glob("fire_perim.*"))>0){
+        file.remove(Sys.glob("fire_perim.*"))
+      }
+    }
+  )
   
-  output$t.table <- renderTable(df())
+  unb.sel.app <- reactive(SpatialPolygonsDataFrame(unb.sel(), data = df.fz()))
+  output$downloadUnb <- downloadHandler(
+    filename = 'unb_isl.zip',
+    content = function(file) {
+      if (length(Sys.glob("unb_isl.*")) > 0){
+        file.remove(Sys.glob("unb_isl.*"))
+      }
+      writeOGR(unb.sel.app(), dsn="unb_isl.shp", layer="unb_isl", driver="ESRI Shapefile")
+      write.csv(df.fz(), file =  "unb_isl.csv")
+      zip(zipfile='unb_isl.zip', files=Sys.glob("unb_isl.*"))
+      file.copy("unb_isl.zip", file)
+      if (length(Sys.glob("unb_isl.*")) > 0){
+        file.remove(Sys.glob("unb_isl.*"))
+      }
+    }
+  )
 }
 
 # Run the application 
