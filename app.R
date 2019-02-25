@@ -6,22 +6,26 @@
 ########################################################################################
 ########################################################################################
 
+
+#################################################
+##    Load packages and data                   ##
+#################################################
 library(shiny)
-library(shinycssloaders)
 library(shinyjs)
 library(rgdal)
 library(rgeos)
 library(zip)
-library(dismo)
 library(raster)
-library(matrixStats)
 library(diagram)
 load("NSO_Data")
 
-# Define UI for application that draws a histogram
+#################################################
+##    Define the UI for application            ##
+#################################################
 ui <- {fluidPage(
   useShinyjs(),
   titlePanel("Fire Refugia Ranking for Spotted Owl"),
+  # Top section
   sidebarLayout(
     sidebarPanel(
       p("Select a fire"),
@@ -38,6 +42,7 @@ ui <- {fluidPage(
       )
     )
   ),
+  # Middle section
   sidebarLayout(
     sidebarPanel(
       tabsetPanel(type = "tabs",
@@ -133,6 +138,7 @@ ui <- {fluidPage(
       plotOutput(outputId = "treediagram")
     )
   ),
+  # Bottom section
   sidebarLayout(
     sidebarPanel(
       # Color select
@@ -153,22 +159,80 @@ ui <- {fluidPage(
   )
 )}
 
-# Define server logic required to draw a histogram
+#################################################
+##    Define server logic for the application  ##
+#################################################
 server <- function(input, output, session) {
   fire <- reactive({input$inFireName})
   fire.sel <- reactive({perims[perims$FireName %in% input$inFireName,]})
   unb.sel <- reactive({unbs[unbs$FireName %in% input$inFireName,]})
   
-  # Plot large map (zoomed out)
+  # Plot location map (zoomed out)
   output$FirePlot <- renderPlot({
     plot(wa)
     plot(fire.sel(), col = "red", border = "red", lwd = 1, add = T)
   })
+  
+  # Plot perimeter and unburned island  map (zoomed in)
   output$PerimPlot <- renderPlot({
     plot(fire.sel())
     plot(unb.sel(), col = "gray50", border = NA, add = T)
   })
+  
+  # Build fire information table
   output$table <- renderTable(FireInfo[FireInfo$Name %in% input$inFireName,], colnames = T, align = "c")
+  
+  # Plot final ranked unburned island map (colored)
+  output$UnbPlot <- renderPlot({
+    par(mar = c(0,0,0,0))
+    plot(unb.sel(), border = col(), col = col())
+    plot(fire.sel(), border = "gray70", lwd = 2, add = T)
+  })
+  
+  # Plot legend
+  output$LegendPlot <- renderPlot({
+    par(mar = c(0,0,0,0))
+    legend_image <- as.raster(matrix(colorRampPalette(c("#004529", "#78c679", "#f7fcb9"))(100), ncol = 1))
+    plot(c(0,2),c(0,1),type = 'n', axes = F,xlab = '', ylab = '', main = '')
+    text(x=1.5, y = c(0.05, 0.95), labels = c("Low\nvalue", "High\nvalue"))
+    rasterImage(legend_image, 0, 0, 1,1)
+  })
+  
+  # Build fire perimeter download
+  output$downloadFire <- downloadHandler(
+    filename = 'fire_perim.zip',
+    content = function(file) {
+      if (length(Sys.glob("fire_perim.*"))>0){
+        file.remove(Sys.glob("fire_perim.*"))
+      }
+      writeOGR(fire.sel(), dsn="fire_perim.shp", layer="fire_perim", driver="ESRI Shapefile")
+      zip(zipfile='fire_perim.zip', files=Sys.glob("fire_perim.*"))
+      file.copy("fire_perim.zip", file)
+      if (length(Sys.glob("fire_perim.*"))>0){
+        file.remove(Sys.glob("fire_perim.*"))
+      }
+    }
+  )
+  
+  # Build unburned island download
+  unb.sel.app <- reactive(SpatialPolygonsDataFrame(unb.sel(), data = df.fz()))
+  output$downloadUnb <- downloadHandler(
+    filename = 'unb_isl.zip',
+    content = function(file) {
+      if (length(Sys.glob("unb_isl.*")) > 0){
+        file.remove(Sys.glob("unb_isl.*"))
+      }
+      writeOGR(unb.sel.app(), dsn="unb_isl.shp", layer="unb_isl", driver="ESRI Shapefile")
+      write.csv(df.fz(), file =  "unb_isl.csv")
+      zip(zipfile='unb_isl.zip', files=Sys.glob("unb_isl.*"))
+      file.copy("unb_isl.zip", file)
+      if (length(Sys.glob("unb_isl.*")) > 0){
+        file.remove(Sys.glob("unb_isl.*"))
+      }
+    }
+  )
+  
+  # Build model logic tree
   output$treediagram <- renderPlot({
     par(mfrow=c(1,1))
     par(mar=c(0,0,0,0))
@@ -192,7 +256,7 @@ server <- function(input, output, session) {
     for (i in 1:10) textrect(elpos[i,],radx=0.065,rady=0.05,lab=label.3[i], cex = 0.8, shadow.size = 0)
   })
   
-  # Default checkboxes
+  # Create default weights checkbox
   observeEvent(input$checkweight, {
     toggleState(id = "WI.wt")
     toggleState(id = "OUT.wt")
@@ -217,6 +281,7 @@ server <- function(input, output, session) {
                         input$WI.AREA.wt, input$WI.S.HS.wt, input$WI.HS.wt, input$WI.CORE.wt, 
                         input$OUT.S.HS.wt, input$OUT.HS.wt, input$OUT.CORE.wt))
   
+  # Create default thresholds checkbox
   observeEvent(input$checkthresh, {
     toggleState(id = "wi.area.t")
     toggleState(id = "wi.suit.high.t")
@@ -247,12 +312,12 @@ server <- function(input, output, session) {
     updateNumericInput(session, "out.high.f", value = 0)
     updateNumericInput(session, "out.core.f", value = 0)
   })
-  
   thresh <- reactive(c(input$wi.area.t, input$wi.suit.high.t, input$wi.high.t, input$wi.core.t, 
                        input$out.suit.high.t, input$out.high.t, input$out.core.t, 
                        input$wi.area.f, input$wi.suit.high.f, input$wi.high.f, input$wi.core.f, 
                        input$out.suit.high.f, input$out.high.f, input$out.core.f))
-  
+ 
+  # Calculate rankings
   Cvt2Fz <- function(True, False, variable){
     x <- df()[,variable]
     t <- thresh()[True]
@@ -264,7 +329,6 @@ server <- function(input, output, session) {
     ret <- ifelse(ret < -1, -1, ret)
     return(ret)
   }
-  
   df <- reactive(replace(unb.sel()@data, is.na(unb.sel()@data), 0))
   df.fz2 <- reactive(data.frame(F_Area = Cvt2Fz(1, 8, "Area"),
                                 F_Suit = Cvt2Fz(2, 9, "Suit"),
@@ -284,7 +348,6 @@ server <- function(input, output, session) {
   F_Value_Ref <- reactive((weights()[1]*F_Value_WI() + 
                              weights()[2]*F_Value_Out()) / 2) # Union (mean)
   F_Rank <- reactive(rank(-F_Value_Ref()))
-  
   df.fz <- reactive(data.frame(
     df(), df.fz1(),
     F_Value_WI = F_Value_WI(),
@@ -293,6 +356,7 @@ server <- function(input, output, session) {
     F_Rank = F_Rank()
   ))
   
+  # Define colors
   Col <- function(df, crit){
     cl <- data.frame(crit = sort(unique(crit)), 
                      col = colorRampPalette(rev(c("#004529", "#78c679", "#f7fcb9")))
@@ -326,53 +390,10 @@ server <- function(input, output, session) {
     }
   })
   
-  output$UnbPlot <- renderPlot({
-    par(mar = c(0,0,0,0))
-    plot(unb.sel(), border = col(), col = col())
-    plot(fire.sel(), border = "gray70", lwd = 2, add = T)
-  })
-  
-  output$LegendPlot <- renderPlot({
-    par(mar = c(0,0,0,0))
-    legend_image <- as.raster(matrix(colorRampPalette(c("#004529", "#78c679", "#f7fcb9"))(100), ncol = 1))
-    plot(c(0,2),c(0,1),type = 'n', axes = F,xlab = '', ylab = '', main = '')
-    text(x=1.5, y = c(0.05, 0.95), labels = c("Low\nvalue", "High\nvalue"))
-    rasterImage(legend_image, 0, 0, 1,1)
-  })
-  
-  output$downloadFire <- downloadHandler(
-    filename = 'fire_perim.zip',
-    content = function(file) {
-      if (length(Sys.glob("fire_perim.*"))>0){
-        file.remove(Sys.glob("fire_perim.*"))
-      }
-      writeOGR(fire.sel(), dsn="fire_perim.shp", layer="fire_perim", driver="ESRI Shapefile")
-      zip(zipfile='fire_perim.zip', files=Sys.glob("fire_perim.*"))
-      file.copy("fire_perim.zip", file)
-      if (length(Sys.glob("fire_perim.*"))>0){
-        file.remove(Sys.glob("fire_perim.*"))
-      }
-    }
-  )
-  
-  unb.sel.app <- reactive(SpatialPolygonsDataFrame(unb.sel(), data = df.fz()))
-  output$downloadUnb <- downloadHandler(
-    filename = 'unb_isl.zip',
-    content = function(file) {
-      if (length(Sys.glob("unb_isl.*")) > 0){
-        file.remove(Sys.glob("unb_isl.*"))
-      }
-      writeOGR(unb.sel.app(), dsn="unb_isl.shp", layer="unb_isl", driver="ESRI Shapefile")
-      write.csv(df.fz(), file =  "unb_isl.csv")
-      zip(zipfile='unb_isl.zip', files=Sys.glob("unb_isl.*"))
-      file.copy("unb_isl.zip", file)
-      if (length(Sys.glob("unb_isl.*")) > 0){
-        file.remove(Sys.glob("unb_isl.*"))
-      }
-    }
-  )
 }
 
-# Run the application 
+#################################################
+##    Run the application                      ##
+#################################################
 shinyApp(ui = ui, server = server)
 
