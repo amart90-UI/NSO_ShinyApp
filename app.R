@@ -247,13 +247,15 @@ server <- function(input, output, session) {
     
     label.1 <- c("Northern Spotted owl (NSO)\n habitat value",
                  "Within unburned island\n NSO habitat value", "Surrounding area (2.5 km)\n NSO habitat value",
-                 "Area of unburned island", "% suitable habitat", "% highly suitable habitat", "Presence of core habitat",
+                 "\nArea of unburned island", "\n% suitable habitat", "\n% highly suitable habitat", "\nPresence of core habitat",
                  "% suitable habitat\n within 2.5 km", "% highly suitable habitat\n within 2.5 km", "% of core habitat\n within 2.5 km")
-    label.2 <- c("\nFinal Value", paste0("\nWeight: ", weights()))
-    label.3 <- paste0(label.1, label.2)
+    label.2 <- c("\nFinal Value", paste("\nWeight:", weights()))
+    unit <- c("ha", "%", "%", "", "%", "%", "%")
+    label.3 <- c(rep("", 3), paste0("\nThresholds: ", thresh()[8:14], unit, " ; ", thresh()[1:7], unit))
+    label.4 <- paste0(label.1, label.2, label.3)
     
     ##plot text boxes
-    for (i in 1:10) textrect(elpos[i,],radx=0.065,rady=0.05,lab=label.3[i], cex = 0.8, shadow.size = 0)
+    for (i in 1:10) textrect(elpos[i,],radx=0.065,rady=0.06,lab=label.4[i], cex = 0.8, shadow.size = 0)
   })
   
   # Create default weights checkbox
