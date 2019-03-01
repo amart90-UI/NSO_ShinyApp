@@ -28,7 +28,6 @@ ui <- {fluidPage(
   # Top section
   sidebarLayout(
     sidebarPanel(
-      p("Select a fire"),
       selectInput(inputId = "inFireName", 
                   label = "Select a fire", 
                   choices = c("Table Mountain", "Jolly Mountain")),
@@ -36,9 +35,13 @@ ui <- {fluidPage(
       tableOutput('table')
     ),
     mainPanel(
-      tabsetPanel(type = "pills",
-                  tabPanel("Location", plotOutput(outputId = "FirePlot")),
-                  tabPanel("Zoom In", plotOutput(outputId = "PerimPlot"))
+      tabsetPanel(type = "tabs",
+                  tabPanel("Location", 
+                           h3("Location of Fire", align = 'center'),
+                           div(plotOutput(outputId = "FirePlot", width = 600, height = 600)), align = 'center'),
+                  tabPanel("Zoom In", 
+                           h3("Fire perimeter and unburned islands", align = 'center'),
+                           div(plotOutput(outputId = "PerimPlot", width = 600, height = 600), align = 'center'))
       )
     )
   ),
@@ -47,6 +50,8 @@ ui <- {fluidPage(
     sidebarPanel(
       tabsetPanel(type = "tabs",
                   tabPanel("Weights",
+                           helpText("Specify weight of criteria when performing weighted union (mean) to combine criteria. Equally weighted by default"),
+                           br(),
                            # Weighting inputs
                            fluidRow(
                              column(3,
@@ -79,6 +84,9 @@ ui <- {fluidPage(
                              checkboxInput(inputId = "checkweight", label = "Default weights", value = T)
                            )),
                   tabPanel("Thresholds",
+                           helpText("Specify the thresholds at which a criteria is entirely false or entirely true.,
+                                    View the \"Additional Threshold Information\" tab for further explanation."),
+                           br(),
                            # Establishing Thresholds
                            #"wi.area.t", "wi.suit.high.t", "wi.high.t", "wi.core.t", "out.suit.high.t", "out.high.t", "out.core.t"
                            fluidRow(
@@ -131,11 +139,26 @@ ui <- {fluidPage(
                                     numericInput(inputId = "out.core.t", value = 50, label = NULL)
                              )),
                            fluidRow(checkboxInput(inputId = "checkthresh", label = "Default thresholds", value = T))
-                  )
+                  ),
+                  tabPanel("Additional Theshold Information",
+                           helpText("Thresholds are used to determine the \"fuzzy values\" for each criteria.",
+                                          "These fuzzy values describe the degree of truth or falseness for a given proposition based on the input value of a given criteria.",
+                                          "The fuzzy values range from -1 (entirely false) to +1 (entirely true).",
+                                          "The thresholds determine the criteria value at which it addresses a criteria is entirely true or entirely false"),
+                           plotOutput(outputId = "FuzzyPlot"),
+                           helpText("Above, an example of how fuzzy scores are determined. To determine the fuzzy value indicating the truth of the proposition \"the refugia is isolated,\" its distance (in meters) to the nearest live edge forest edge is compared to the line above.",
+                                          "Any distance \u2264 200 m would return -1, or entirely false.  Any value \u2265 800 m would return 1 or completely true.",
+                                          "Distances between 200 m and 800 m would return a value between -1 and 1, with 500 m returning a fuzzy value of 0 (dotted line).",
+                                          "The thresholds (dashed lines) are manually set during the model building process."),
+                           uiOutput("url"))
       )
     ),
     mainPanel(
-      plotOutput(outputId = "treediagram")
+      h3("Logic tree for model", align = 'center'),
+      div(plotOutput(outputId = "treediagram"), align = 'center'),
+      helpText("This shows the heriracy of the model.",
+               "The root node (top box) is the final \"refugia value\" for determining an unburned island\'s importance for spotted owl habitat.",
+               "The intermediate criteria (middle two) are determined by taking the mean of the input criteria (bottom row).")
     )
   ),
   # Bottom section
@@ -145,7 +168,9 @@ ui <- {fluidPage(
       selectInput(inputId = "inColor", 
                   label = "Color Refugia by:", 
                   choices = criteria),
+      br(),
       # Download
+      helpText("Download fire perimeter or unburned islands with all ranking data."),
       downloadButton(outputId = "downloadFire", label = "Download fire perimeter"),
       downloadButton(outputId = "downloadUnb", label = "Download unburned island"),
       br(), br(),
@@ -153,8 +178,9 @@ ui <- {fluidPage(
       ))
     ),
     mainPanel(
+      fluidRow(column(11, offset = 1, h3("Ranked unburned islands", align = 'center'))),
       fluidRow(column(1, plotOutput(outputId = "LegendPlot", width = 100, height = 180)),
-               column(11, plotOutput(outputId = "UnbPlot", width = 800, height = 800)))
+               column(11, plotOutput(outputId = "UnbPlot", width = 800, height = 800), align = 'center'))
     )
   )
 )}
@@ -169,7 +195,7 @@ server <- function(input, output, session) {
   
   # Plot location map (zoomed out)
   output$FirePlot <- renderPlot({
-    plot(wa)
+    plot(pnw[pnw@data$NAME_1 %in% c("Washington", "Oregon"),])
     plot(fire.sel(), col = "red", border = "red", lwd = 1, add = T)
   })
   
@@ -196,6 +222,16 @@ server <- function(input, output, session) {
     plot(c(0,2),c(0,1),type = 'n', axes = F,xlab = '', ylab = '', main = '')
     text(x=1.5, y = c(0.05, 0.95), labels = c("Low\nvalue", "High\nvalue"))
     rasterImage(legend_image, 0, 0, 1,1)
+  })
+  
+  # Plot fuzzy threshold example
+  output$FuzzyPlot <- renderPlot({
+    plot(x = -100, y = -10, xlim = c(0,1000), ylim = c(-1,1), 
+         xlab = "Distance to fire perimeter (m)", ylab = "Fuzzy value (Truth/Falseness)", main = "The refugia is isolated")
+    lines(x = c(0, 200, 800, 1100), y = c(-1, -1, 1, 1), lwd = 2)
+    lines(x = c(200, 200), y = c(-2, -0.5), lty = 5, lwd = 1.5)
+    lines(x = c(800, 800), y = c(-2, 1.06), lty = 5, lwd = 1.5)
+    lines(x = c(-100, 500, 500), y = c(0, 0, -1.5), lty = 3, lwd = 1.5)
   })
   
   # Build fire perimeter download
@@ -232,6 +268,11 @@ server <- function(input, output, session) {
     }
   )
   
+  # EEMS URL
+  url <- a("See the EEMS website for more information", target="_blank", 
+           href = "https://consbio.org/products/tools/environmental-evaluation-modeling-system-eems")
+  output$url <- renderUI(tagList(url))
+  
   # Build model logic tree
   output$treediagram <- renderPlot({
     par(mfrow=c(1,1))
@@ -243,8 +284,6 @@ server <- function(input, output, session) {
     treearrow(from=elpos[1,],to=elpos[2:3,],lwd=4, arr.side = 0)  
     treearrow(from=elpos[2,],to=elpos[4:7,],lwd=4, arr.side = 0)
     treearrow(from=elpos[3,],to=elpos[8:10,],lwd=4, arr.side = 0)
-    
-    
     label.1 <- c("Northern Spotted owl (NSO)\n habitat value",
                  "Within unburned island\n NSO habitat value", "Surrounding area (2.5 km)\n NSO habitat value",
                  "\nArea of unburned island", "\n% suitable habitat", "\n% highly suitable habitat", "\nPresence of core habitat",
