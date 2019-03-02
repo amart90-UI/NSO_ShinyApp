@@ -30,7 +30,7 @@ ui <- {fluidPage(
     sidebarPanel(
       selectInput(inputId = "inFireName", 
                   label = "Select a fire", 
-                  choices = c("Table Mountain", "Jolly Mountain")),
+                  choices = c("Table Mountain", "Jolly Mountain", "Rex Creek", "Tyee Creek", "B&B")),
       br(),
       tableOutput('table')
     ),
