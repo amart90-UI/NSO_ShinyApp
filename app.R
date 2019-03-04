@@ -17,6 +17,9 @@ library(rgeos)
 library(zip)
 library(raster)
 library(diagram)
+library(ggmap)
+library(ggplot2)
+library(broom)
 load("NSO_Data")
 
 #################################################
@@ -200,9 +203,22 @@ server <- function(input, output, session) {
   })
   
   # Plot perimeter and unburned island  map (zoomed in)
+  #output$PerimPlot <- renderPlot({
+  #  plot(fire.sel())
+  #  plot(unb.sel(), col = "gray50", border = NA, add = T)
+  #})
   output$PerimPlot <- renderPlot({
-    plot(fire.sel())
-    plot(unb.sel(), col = "gray50", border = NA, add = T)
+    if(input$inFireName == "Table Mountain"){
+      plot(map.table)
+    } else if(input$inFireName == "Jolly Mountain"){
+      plot(map.jolly)
+    } else if(input$inFireName == "Rex Creek"){
+      plot(map.rex)
+    } else if(input$inFireName == "Tyee Creek"){
+      plot(map.tyee)
+    } else if(input$inFireName == "B&B"){
+      plot(map.BB)
+    }
   })
   
   # Build fire information table
