@@ -33,7 +33,7 @@ ui <- {fluidPage(
     sidebarPanel(
       selectInput(inputId = "inFireName", 
                   label = "Select a fire", 
-                  choices = c("Table Mountain", "Jolly Mountain", "Rex Creek", "Tyee Creek", "B&B")),
+                  choices = c("B&B", "Davis", "Government Flats", "Poison", "Pole Creek")),
       br(),
       tableOutput('table')
     ),
@@ -208,16 +208,16 @@ server <- function(input, output, session) {
   #  plot(unb.sel(), col = "gray50", border = NA, add = T)
   #})
   output$PerimPlot <- renderPlot({
-    if(input$inFireName == "Table Mountain"){
-      plot(map.table)
-    } else if(input$inFireName == "Jolly Mountain"){
-      plot(map.jolly)
-    } else if(input$inFireName == "Rex Creek"){
-      plot(map.rex)
-    } else if(input$inFireName == "Tyee Creek"){
-      plot(map.tyee)
-    } else if(input$inFireName == "B&B"){
+    if(input$inFireName == "B&B"){
       plot(map.BB)
+    } else if(input$inFireName == "Davis"){
+      plot(map.Davis)
+    } else if(input$inFireName == "Government Flats"){
+      plot(map.Govt)
+    } else if(input$inFireName == "Poison"){
+      plot(map.Poison)
+    } else if(input$inFireName == "Pole Creek"){
+      plot(map.Pole)
     }
   })
   
