@@ -33,7 +33,7 @@ ui <- {fluidPage(
     sidebarPanel(
       selectInput(inputId = "inFireName", 
                   label = "Select a fire", 
-                  choices = c("B&B", "Davis", "Government Flats", "Poison", "Pole Creek")),
+                  choices = c("B&B", "Davis", "Poison", "Pole Creek")),
       br(),
       tableOutput('table')
     ),
@@ -234,12 +234,12 @@ server <- function(input, output, session) {
   # Plot legend
   output$LegendPlot <- renderPlot({
     par(mar = c(0,0,0,0))
-    legend_image <- as.raster(matrix(colorRampPalette(c("#004529", "#78c679", "#f7fcb9"))(100), ncol = 1))
+    legend_image <- as.raster(matrix(colorRampPalette(c("#253494", "#BAE4BC"))(100), ncol = 1))
     plot(c(0,2),c(0,1),type = 'n', axes = F,xlab = '', ylab = '', main = '')
     text(x=1.5, y = c(0.05, 0.95), labels = c("Low\nvalue", "High\nvalue"))
     rasterImage(legend_image, 0, 0, 1,1)
   })
-  
+
   # Plot fuzzy threshold example
   output$FuzzyPlot <- renderPlot({
     plot(x = -100, y = -10, xlim = c(0,1000), ylim = c(-1,1), 
@@ -416,7 +416,7 @@ server <- function(input, output, session) {
   # Define colors
   Col <- function(df, crit){
     cl <- data.frame(crit = sort(unique(crit)), 
-                     col = colorRampPalette(rev(c("#004529", "#78c679", "#f7fcb9")))
+                     col = colorRampPalette(rev(c("#253494", "#BAE4BC")))
                      (length(unique(crit))))
     cl <- merge(data.frame(ID = df$ID, crit = crit), cl, by = "crit")
     cl <- as.character(cl[order(cl$ID), "col"])
